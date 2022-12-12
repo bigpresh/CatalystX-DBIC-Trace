@@ -5,7 +5,9 @@ BEGIN {
 }
 use Moose::Role;
 use namespace::autoclean;
- 
+
+use CatalystX::DBIC::Trace::TracerObject;
+
 use CatalystX::InjectComponent;
 
 use DDP;
@@ -40,6 +42,10 @@ before 'prepare_body' => sub {
     # this didn't seem to have any effect...
     $ENV{DBIC_TRACE} = "1=" . $fh->filename;
 
+    my $tracer = CatalystX::DBIC::Trace::TracerObject->new(
+        context => $c,
+    );
+
     # FIXME make the model name configurable?  Or find a more robust way
     # to automatically determine?  Maybe call $c->model(qr{.+}) to match
     # all, and filter to results which isa Catalyst::Model::DBIC::Schema
@@ -50,9 +56,11 @@ before 'prepare_body' => sub {
     # maybe need $model->result_source->schema->storage ?
     # but why are we getting a Drain::Schema::ResultSet at all?!
     $model->storage->debug(1);
-    $model->storage->debugfh($fh);
+    #$model->storage->debugfh($fh);
+    $model->storage->debugobj($tracer);
 
-    $c->stash->{_dbic_trace_fh} = $fh;
+    #$c->stash->{_dbic_trace_fh} = $fh;
+    $c->stash->{_dbic_tracer_obj} = $tracer;
 
 };
 
@@ -64,12 +72,11 @@ after 'finalize_body' => sub {
     my $c = shift;
     $c->log->debug("plugin finalize_body hook fires");
     delete $ENV{DBIC_TRACE};
-    if (my $fh = $c->stash->{_dbic_trace_fh}) {
-        $c->log->debug("Read queries from " . $fh->filename);
-        $fh->seek(0, 0);
-        $c->log->debug("QUERIES EXECUTED: ", join "\n", <$fh>);
-    } else {
-        $c->log->debug("No DBIC trace filehandle in stash");
+    if (my $tracer = $c->stash->{_dbic_tracer_obj}) {
+        use JSON;
+        $c->log->debug("Queries executed are as follows:",
+            JSON::to_json($tracer->queries, { pretty => 1 })
+        );
     }
 
 };
