@@ -1,0 +1,13 @@
+CatalystX::DBIC::Trace
+
+Log all SQL queries executed by DBIC at the end of each request.
+
+Hopefully further extend to support timing queries, a UI to list recent
+requests and all their queries, and list recent queries by time to identify
+slow ones, etc.
+
+In particular, using a debugobj() instead of debugfh() so we can log every
+query as it's run (in case one hangs) as well as getting info on the time
+they took.
+
+FIXME: generate a full README.
